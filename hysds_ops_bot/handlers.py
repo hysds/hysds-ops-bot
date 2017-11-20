@@ -10,14 +10,39 @@ logging.basicConfig(format=log_format, level=logging.INFO)
 logger = logging.getLogger(os.path.splitext(os.path.basename(__file__))[0])
 
 
-# get settings
-CFG = SettingsConf().cfg
+def help_handler(cfg=None):
+    """Help handler
 
+    :return (string): return help message
+    """
 
-def help_handler():
-    """Handler for help command."""
-
+    if cfg is None: cfg = {}
     return 'Response for "help" command goes here.'
+
+
+def status_handler(cluster, cfg=None):
+    """Mozart job status handler
+
+    :param cluster (string): cluster
+    :return (string): return cluster job status
+    """
+
+    if cfg is None: cfg = {}
+    url = cfg.get('MOZART_ES_URL', {}).get(cluster, None)
+    if url is None:
+        return 'No configuration found for cluster "%s". Try again.' % cluster
+    counts = job_count(url).get('counts', {})
+    response = '*Current job status on "%s" cluster:*\n\n' % cluster
+    response += 'Total: %s\n' % counts.get('total', 0)
+    response += 'Queued: %s\n' % counts.get('job-queued', 0)
+    response += 'Started: %s\n' % counts.get('job-started', 0)
+    response += 'Completed: %s\n' % counts.get('job-completed', 0)
+    response += 'Failed: %s\n' % counts.get('job-failed', 0)
+    response += 'Revoked: %s\n' % counts.get('job-revoked', 0)
+    response += 'Deduped: %s\n' % counts.get('job-deduped', 0)
+    response += 'Offline: %s\n' % counts.get('job-offline', 0)
+
+    return response
 
 
 class CommandHandlerException(Exception):
@@ -28,9 +53,12 @@ class CommandHandlerException(Exception):
 class CommandHandler(object):
     """Class for handling commands."""
 
+    # command registry
     cmd_reg = {
         "help": help_handler,
+        "status": status_handler,
     }
+
 
     def __init__(self, bot_id, slack_client, cfg=None):
         """Construct CommandHandler instance."""
@@ -73,7 +101,10 @@ class CommandHandler(object):
         logger.info("args: %s" % args)
     
         # handle commands
-        if cmd in self.cmd_reg: response = self.cmd_reg[cmd](*args)
+        if cmd in self.cmd_reg:
+            try: response = self.cmd_reg[cmd](*args, cfg=self._cfg)
+            except Exception, e:
+                response = "Error %s:\n%s" % (str(e), self.cmd_reg[cmd].__doc__)
         else: response = "Sure...write some more code then I can do that!"
 
         # send response
