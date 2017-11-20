@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import os, sys, json, requests, logging, traceback, backoff
+from datetime import datetime
 from requests.packages.urllib3.exceptions import (InsecureRequestWarning,
                                                   InsecurePlatformWarning)
 
@@ -116,3 +117,50 @@ def job_count(url):
         'message': '',
         'counts': counts
     }
+
+
+@backoff.on_exception(backoff.expo,
+                      Exception,
+                      max_tries=CFG['BACKOFF_MAX_TRIES'],
+                      max_value=CFG['BACKOFF_MAX_VALUE'])
+def last_failed(url, job_type):
+    """Return last failed job for a specified job type."""
+
+    # query
+    query = {
+        "query": {
+            "bool": {
+                "must": [
+                    {   
+                        "terms": {
+                            "status": [ "job-failed" ]
+                        }
+                    },
+                    {
+                        "terms": {
+                            "resource": [ "job" ]
+                        }
+                    },
+                    {
+                        "terms": {
+                            "type": [ job_type ]
+                        }
+                    }
+                ]
+            }
+        },
+        "sort": [ {"job.job_info.time_end": { "order":"desc" } } ],
+        "_source": [ "job_id", "payload_id", "payload_hash", "uuid",
+                     "job.job_info.time_queued", "job.job_info.time_start",
+                     "job.job_info.time_end", "error", "traceback" ],
+        "size": 1
+    }
+    r = requests.post('%s/job_status-current/job/_search' % url, data=json.dumps(query))
+    r.raise_for_status()
+    result = r.json()
+    count = result['hits']['total']
+    if count == 0: return None
+    else:
+        latest_job = result['hits']['hits'][0]['_source']
+        logging.info("latest job: %s" % json.dumps(latest_job, indent=2))
+        return latest_job
