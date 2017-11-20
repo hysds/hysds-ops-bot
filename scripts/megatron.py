@@ -3,6 +3,7 @@ import os
 import time
 from slackclient import SlackClient
 
+from hysds_ops_bot.conf_util import SettingsConf
 from hysds_ops_bot.handlers import CommandHandler, CommandHandlerException
 
 
@@ -27,6 +28,5 @@ def main(bot_token, bot_id):
 
 if __name__ == "__main__":
     # get bot token and ID from env
-    bot_token = os.environ.get('SLACK_BOT_TOKEN')
-    bot_id = os.environ.get("BOT_ID")
-    main(bot_token, bot_id)
+    cfg = SettingsConf().cfg
+    main(cfg['BOT_TOKEN'], cfg['BOT_ID'])

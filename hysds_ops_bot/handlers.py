@@ -67,7 +67,7 @@ class CommandHandler(object):
         self._at_bot =  "<@%s>" % bot_id
         self._sc = slack_client
         self._cfg = SettingsConf().cfg if cfg is None else cfg
-        logger.info("cfg: {}".format(json.dumps(self._cfg, indent=2)))
+        #logger.info("cfg: {}".format(json.dumps(self._cfg, indent=2)))
 
 
     def parse_slack_output(self):

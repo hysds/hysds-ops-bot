@@ -20,7 +20,7 @@ class YamlConf(object):
     def __init__(self, file):
         """Construct YamlConf instance."""
 
-        logger.info("file: {}".format(file))
+        #logger.info("file: {}".format(file))
         self._file = file
         with open(self._file) as f:
             self._cfg = yaml.load(f)
