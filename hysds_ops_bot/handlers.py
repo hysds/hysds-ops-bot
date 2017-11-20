@@ -13,6 +13,7 @@ EXAMPLE_COMMAND = "help"
 
 # get settings
 CFG = SettingsConf().cfg
+logger.info("CFG: {}".format(json.dumps(CFG, indent=2)))
 
 
 def handle_command(slack_client, command, channel):
@@ -20,7 +21,6 @@ def handle_command(slack_client, command, channel):
        are valid commands. If so, then acts on the commands. If not,
        returns back what it needs for clarification."""
 
-    logger.info("CFG: {}".format(json.dumps(CFG, indent=2)))
     response = "Not sure what you mean. Use the *" + EXAMPLE_COMMAND + \
                "* command with numbers, delimited by spaces."
     if command.startswith(EXAMPLE_COMMAND):
