@@ -67,6 +67,16 @@ def query_failed_handler(job_type, cluster, cfg=None):
     return 'chat.postMessage', response
 
 
+def transform_handler(cfg=None):
+    """Transform handler
+
+    :return (dict): tranform gif
+    """
+
+    transform_url = "https://raw.githubusercontent.com/hysds/hysds-ops-bot/master/hysds_ops_bot/megatron_transform.gif"
+    return 'chat.postMessage', transform_url
+
+
 class CommandHandlerException(Exception):
     """Exception class for CommandHandler class."""
     pass
@@ -80,6 +90,7 @@ class CommandHandler(object):
         "help": help_handler,
         "status": status_handler,
         "failed": query_failed_handler,
+        "transform": transform_handler,
     }
 
 
@@ -137,9 +148,18 @@ class CommandHandler(object):
             res = self._sc.api_call(api_call, channel=channel,
                                     text=response, as_user=True)
         elif api_call == "files.upload":
-            res = self._sc.api_call(api_call, channel=channel,
-                                    content=response, 
-                                    as_user=True)
+            if 'content' in response:
+                res = self._sc.api_call(api_call, channel=channel,
+                                        content=response, 
+                                        as_user=True)
+            elif 'filename' in response:
+                res = self._sc.api_call(api_call, channel=channel,
+                                        filename=os.path.basename(response['filename']),
+                                        file=open(response['filename'], 'rb'),
+                                        as_user=True)
+            else: 
+                raise(CommandHandlerException("Unsupported files.upload API call: %s" % \
+                                              json.dumps(response, indent=2)))
         else:
             raise(CommandHandlerException("Unsupported Slack API call: %s" % api_call))
 
