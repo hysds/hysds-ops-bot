@@ -10,17 +10,20 @@ logging.basicConfig(format=log_format, level=logging.INFO)
 logger = logging.getLogger(os.path.splitext(os.path.basename(__file__))[0])
 
 
-def help_handler(cfg=None):
+def help_handler(cfg=None, cmd_reg=None):
     """Help handler
 
     :return (string): return help message
     """
 
     if cfg is None: cfg = {}
-    return 'chat.postMessage', 'Response for "help" command goes here.'
+    response = "I don't take orders! But here's what you can ask me:\n"
+    for cmd in sorted(cmd_reg):
+        response += "*%s*\n" % cmd
+    return 'chat.postMessage', { 'text': response }
 
 
-def status_handler(cluster, cfg=None):
+def status_handler(cluster, cfg=None, cmd_reg=None):
     """Mozart job status handler
 
     :param cluster (string): cluster
@@ -42,13 +45,14 @@ def status_handler(cluster, cfg=None):
     response += 'Deduped: %s\n' % counts.get('job-deduped', 0)
     response += 'Offline: %s\n' % counts.get('job-offline', 0)
 
-    return 'chat.postMessage', response
+    return 'chat.postMessage', { 'text': response }
 
 
-def query_failed_handler(job_type, cluster, cfg=None):
+def query_failed_handler(job_type, cluster, cfg=None, cmd_reg=None):
     """Mozart failed job type query handler
 
     :param job_type (string): job type to query
+    :param cluster (string): cluster
     :return (string): return job ID, error and traceback
     """
 
@@ -64,17 +68,27 @@ def query_failed_handler(job_type, cluster, cfg=None):
     response += 'Error: %s\n' % job['error']
     response += 'Traceback: %s\n' % job['traceback']
 
-    return 'chat.postMessage', response
+    return 'chat.postMessage', { 'text': response }
 
 
-def transform_handler(cfg=None):
+def transform_handler(cfg=None, cmd_reg=None):
     """Transform handler
 
     :return (dict): tranform gif
     """
 
     transform_url = "https://raw.githubusercontent.com/hysds/hysds-ops-bot/master/hysds_ops_bot/megatron_transform.gif"
-    return 'chat.postMessage', transform_url
+    response = {
+        "attachments": [
+            {
+                "fallback": "Pesky Autobots!",
+                "title": "Pesky Autobots!",
+                "image_url": transform_url,
+                "color": "#764FA5"
+            }
+        ],
+    }
+    return 'chat.postMessage', response
 
 
 class CommandHandlerException(Exception):
@@ -134,34 +148,29 @@ class CommandHandler(object):
         logger.info("cmd: %s" % cmd)
         logger.info("args: %s" % args)
     
-        # handle commands
-        api_call = "chat.postMessage"
+        # handle commands and get payload
+        method = "chat.postMessage"
         if cmd in self.cmd_reg:
             try:
-                api_call, response = self.cmd_reg[cmd](*args, cfg=self._cfg)
+                method, payload = self.cmd_reg[cmd](*args, cfg=self._cfg, cmd_reg=self.cmd_reg)
             except Exception, e:
-                response = "Error %s:\n%s" % (str(e), self.cmd_reg[cmd].__doc__)
-        else: response = "Sure...write some more code then I can do that!"
+                payload = {
+                    "text": "Error %s:\n%s" % (str(e), self.cmd_reg[cmd].__doc__),
+                }
+        else:
+            payload = {
+                "text": "Sure...write some more code then I can do that!",
+            }
 
         # send response
-        if api_call == "chat.postMessage":
-            res = self._sc.api_call(api_call, channel=channel,
-                                    text=response, as_user=True)
-        elif api_call == "files.upload":
-            if 'content' in response:
-                res = self._sc.api_call(api_call, channel=channel,
-                                        content=response, 
-                                        as_user=True)
-            elif 'filename' in response:
-                res = self._sc.api_call(api_call, channel=channel,
-                                        filename=os.path.basename(response['filename']),
-                                        file=open(response['filename'], 'rb'),
-                                        as_user=True)
-            else: 
-                raise(CommandHandlerException("Unsupported files.upload API call: %s" % \
-                                              json.dumps(response, indent=2)))
+        if method == "chat.postMessage":
+            res = self._sc.api_call(method, channel=channel,
+                                    as_user=True, **payload)
+        elif method == "files.upload":
+            res = self._sc.api_call(method, channel=channel,
+                                    as_user=True, **payload)
         else:
-            raise(CommandHandlerException("Unsupported Slack API call: %s" % api_call))
+            raise(CommandHandlerException("Unsupported Slack API call: %s" % method))
 
         # log result from api call
         logger.info("res: %s" % json.dumps(res, indent=2))
