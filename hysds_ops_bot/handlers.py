@@ -33,7 +33,7 @@ def status_handler(cluster, cfg=None, cmd_reg=None):
     if cfg is None: cfg = {}
     url = cfg.get('MOZART_ES_URL', {}).get(cluster, None)
     if url is None:
-        return 'No configuration found for cluster "%s". Try again.' % cluster
+        raise RuntimeError('No configuration found for cluster "%s". Try again.' % cluster)
     counts = job_count(url).get('counts', {})
     response = '*Current job status on "%s" cluster:*\n\n' % cluster
     response += 'Total: %s\n' % counts.get('total', 0)
@@ -59,10 +59,10 @@ def query_failed_handler(job_type, cluster, cfg=None, cmd_reg=None):
     if cfg is None: cfg = {}
     url = cfg.get('MOZART_ES_URL', {}).get(cluster, None)
     if url is None:
-        return 'No configuration found for cluster "%s". Try again.' % cluster
+        raise RuntimeError('No configuration found for cluster "%s". Try again.' % cluster)
     job = last_failed(url, job_type)
     if job is None:
-        return 'No failed "%s" job found for cluster "%s". Try again.' % (job_type, cluster)
+        raise RuntimeError('No failed "%s" job found for cluster "%s". Try again.' % (job_type, cluster))
     response = '*Last failed "%s" job on "%s" cluster:*\n\n' % (job_type, cluster)
     response += 'ID: %s\n' % job['job_id']
     response += 'Error: %s\n' % job['error']
